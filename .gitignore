@@ -3,6 +3,11 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# default files
+USB COM PORT OPERATION.sln
+USB COM PORT OPERATION.vcxproj
+USB COM PORT OPERATION.vcxproj.filter
+
 # User-specific files
 *.rsuser
 *.suo
