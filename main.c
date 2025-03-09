@@ -1,64 +1,79 @@
 #include <stdio.h>
 #include <windows.h>
 
-HANDLE open_com_port(const char* port_name)
+HANDLE OpenComPort(const char* portName)
 {
-    HANDLE hSerial = CreateFile(port_name,
-                                GENERIC_READ | GENERIC_WRITE,
-                                0, // No sharing
-                                NULL, // No security
-                                OPEN_EXISTING,
-                                0, // No attributes
-                                NULL); // No template
+    // Open the specified COM port
+    HANDLE hCom = CreateFileA(portName,
+                             GENERIC_READ | GENERIC_WRITE,
+                             0, // No sharing
+                             NULL, // Default security
+                             OPEN_EXISTING,
+                             0, // No attributes
+                             NULL); // No template file
 
-    if (hSerial == INVALID_HANDLE_VALUE)
+    // Check if the COM port was opened successfully
+    if (hCom == INVALID_HANDLE_VALUE)
     {
-        // Ошибка открытия порта
-        printf("Ошибка открытия порта %s: %d\n", port_name, GetLastError());
+        printf("Error opening COM port: %d\n", GetLastError());
         return INVALID_HANDLE_VALUE;
     }
 
-    // Настройка параметров порта
-    DCB dcbSerialParams = { 0 };
-    dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-
-    if (!GetCommState(hSerial, &dcbSerialParams))
+    // Setup the COM port parameters
+    DCB dcb;
+    if (!GetCommState(hCom, &dcb))
     {
-        // Ошибка получения состояния
-        printf("Ошибка получения состояния порта: %d\n", GetLastError());
-        CloseHandle(hSerial);
+        printf("Error getting COM state: %d\n", GetLastError());
+        CloseHandle(hCom);
         return INVALID_HANDLE_VALUE;
     }
 
-    // Установка параметров
-    dcbSerialParams.BaudRate = CBR_9600; // Здесь вы можете установить необходимые параметры
-    dcbSerialParams.ByteSize = 8;         // 8 бит данных
-    dcbSerialParams.StopBits = ONESTOPBIT; // 1 стоп-бит
-    dcbSerialParams.Parity = NOPARITY;  // Без четности
+    // Set parameters (baud rate, byte size, stop bits, parity)
+    dcb.BaudRate = CBR_9600; // Baud rate
+    dcb.StopBits = ONESTOPBIT; // One stop bit
+    dcb.Parity = NOPARITY; // No parity
+    dcb.ByteSize = 8; // 8 data bits
 
-    if (!SetCommState(hSerial, &dcbSerialParams))
+    // Set the COM port settings
+    if (!SetCommState(hCom, &dcb))
     {
-        // Ошибка установки состояния
-        printf("Ошибка установки состояния порта: %d\n", GetLastError());
-        CloseHandle(hSerial);
+        printf("Error setting COM state: %d\n", GetLastError());
+        CloseHandle(hCom);
         return INVALID_HANDLE_VALUE;
     }
 
-    return hSerial;
+    // Optionally, set timeouts
+    COMMTIMEOUTS timeouts;
+    timeouts.ReadIntervalTimeout = 50;
+    timeouts.ReadTotalTimeoutConstant = 50;
+    timeouts.ReadTotalTimeoutMultiplier = 10;
+    timeouts.WriteTotalTimeoutConstant = 50;
+    timeouts.WriteTotalTimeoutMultiplier = 10;
+
+    if (!SetCommTimeouts(hCom, &timeouts))
+    {
+        printf("Error setting timeouts: %d\n", GetLastError());
+        CloseHandle(hCom);
+        return INVALID_HANDLE_VALUE;
+    }
+
+    // Return the handle to the opened COM port
+    return hCom;
 }
 
 int main()
 {
-    const char* port_name = "COM3"; // Укажите свой COM порт здесь
-    HANDLE hSerial = open_com_port(port_name);
+    const char* portName = "COM3"; // Change this to your appropriate COM port
 
-    if (hSerial != INVALID_HANDLE_VALUE)
+    HANDLE hCom = OpenComPort(portName);
+    if (hCom != INVALID_HANDLE_VALUE)
     {
-        printf("COM порт %s успешно открыт.\n", port_name);
-        // Здесь можно взаимодействовать с открытым портом
+        printf("COM port opened successfully\n");
 
-        // Закрытие порта
-        CloseHandle(hSerial);
+        // Perform reading/writing operations here...
+
+        // Close the COM port when done
+        CloseHandle(hCom);
     }
 
     return 0;
