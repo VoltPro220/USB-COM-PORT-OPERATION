@@ -105,20 +105,19 @@ extern "C"
 #else 
 extern
 #endif
-void read_from_com_port()
+const char* read_from_com_port()
 {
-	char buffer[BUFFER_SIZE];
-	DWORD bytesRead;
+	char* buffer = malloc(BUFFER_SIZE);
+	int bytesRead = 0;
 	if (!ReadFile(hCom, buffer, BUFFER_SIZE - 1, &bytesRead, NULL))
 	{
 #if defined(UCPERR)
 		fprintf(stderr, "Error reading from COM port: %ld\n", GetLastError());
 #endif
-		return 0;
+		return NULL;
 	}
-
 	buffer[bytesRead] = '\0'; // Null-terminate the string
-	puts(buffer);
+	return buffer;
 }
 
 #ifdef __cplusplus
