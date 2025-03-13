@@ -51,6 +51,8 @@ The standart setting com port. If you need you can change them
 
 ### Errors:
 - ```Error opening COM port```  COM port connection error, check if you entered the port number correctly. You can check through the device manager
+
+![device manager](img/ports.png)
 - ```Error getting COM state```  We tried to get the status of the COM port to configure it to work, but an error came out. Check the integrity of the descriptor and try again.
 - ```Error setting COM state```  We managed to get the port data, but we couldn't configure it.
 - ```Error setting timeouts```  It was not possible to set timeouts for read and write operations.
