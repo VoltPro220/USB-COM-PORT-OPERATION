@@ -107,7 +107,7 @@ extern
 #endif
 const char* read_from_com_port()
 {
-	char* buffer = malloc(BUFFER_SIZE);
+	char* buffer = calloc(BUFFER_SIZE, sizeof(char));
 	int bytesRead = 0;
 	if (!ReadFile(hCom, buffer, BUFFER_SIZE - 1, &bytesRead, NULL))
 	{
@@ -116,7 +116,6 @@ const char* read_from_com_port()
 #endif
 		return NULL;
 	}
-	buffer[bytesRead] = '\0'; // Null-terminate the string
 	return buffer;
 }
 
