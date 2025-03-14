@@ -2,91 +2,72 @@
 
 void usb::SerialPort::connectToComPort(const char* portName)
 {
-	this->err = 0;
-	this->comStatus = { 0 };
 	this->isConnected = FALSE;
 
-	// Creating and opening an input/output descriptor.
-	this->serial = CreateFileA(portName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	hCom = CreateFileA(portName,
+					   GENERIC_READ | GENERIC_WRITE,
+					   0, // No sharing
+					   NULL, // Default security
+					   OPEN_EXISTING,
+					   0, // No attributes
+					   NULL); // No template file
 
-	// ***************** HANDLE errors *******************
-	// Use the Win32 API function to get the latest error.
-	// It returns an integer error code. There
-	// it contains about 16,000 error codes, we are only interested in two
-	// (is the device connected? and is it already being used by another application? ).
-
-	DWORD errMsg = GetLastError();
-
-	// the win32 error code for ERROR_FILE_NOT_FOUND is DWORD 2L
-	// Indicates that the device is not connected or has not been found.
-	if (errMsg == ERROR_FILE_NOT_FOUND)
+	// Check if the COM port was opened successfully
+	if (hCom == INVALID_HANDLE_VALUE)
 	{
-#ifdef OUTPUT_ERR
-		std::cerr << "ERROR #2L: \"\\." << portName << "\" I/O device NOT found\n";
-#else 
+#if defined(UCPERR)
+		std::cerr << "Error opening COM port: " << GetLastError() << std::endl;
+#endif
 		return;
-#endif
 	}
-
-	// the win32 error code for ERROR_ACCESS_DENIED is DWORD 5L
-	// This means that access is denied because it is being used.
-	// in another program.
-	else if (errMsg == ERROR_ACCESS_DENIED)
+	// DCB Structure: A DCB (Device Control Block) structure is used to define the parameters 
+	// of the COM port. The baud rate, byte size, stop bits, and parity are set.
+	// Setup the COM port parameters
+	DCB dcb;
+	if (!GetCommState(hCom, &dcb))
 	{
-#ifdef OUTPUT_ERR
-		std::cerr << "ERROR #5L: can`t open: \"\\." << portName << "\"";
-#else 
+#if defined(UCPERR)
+		std::cerr << "Error getting COM state: " << GetLastError() << std::endl;
+#endif
+		CloseHandle(hCom);
 		return;
-#endif
 	}
 
-	// ****************** COM Port Configuration ****************************
-	// If everything is fine, it configures the serial COM port.
-	else if (errMsg == 0)
+	// Set parameters (baud rate, byte size, stop bits, parity)
+	dcb.BaudRate = BAUDRATE; // Baud rate
+	dcb.StopBits = STOPBITS; // One stop bit
+	dcb.Parity = PARITY; // No parity
+	dcb.ByteSize = BYTESIZE; // 8 data bits
+
+	// SetCommState: This function applies the settings to the COM port.
+	// Set the COM port settings
+	if (!SetCommState(hCom, &dcb))
 	{
-		// DCB is a "Device Control Block", a structure that stores settings
-		// distribution kit. Setting the COM port parameters. (You can change them)
-		// In the SerialPort.h header file in the definitions
-		DCB dcbSerialParameters = { 0 };
-		if (!GetCommState(serial, &dcbSerialParameters))
-		{
-#ifdef OUTPUT_ERR
-			std::cerr << "ERROR #4L: \"\\." << portName << "\" Distribution data could not be obtained\n";
-#else 
-			return;
+#if defined(UCPERR)
+		std::cerr << "Error setting COM state: " << GetLastError() << std::endl;
 #endif
-		}
-		else
-		{
-			dcbSerialParameters.BaudRate = CBR_BAUD;
-			dcbSerialParameters.ByteSize = BYTESIZE;
-			dcbSerialParameters.StopBits = STOPBITS;
-			dcbSerialParameters.Parity = PARITY;
-#ifdef SETFDTRCONTROL
-			dcbSerialParameters.fDtrControl = FDTRCONTROL;
-#endif
-
-			// Set the parameters, if this fails, an error appears.
-			if (!GetCommState(serial, &dcbSerialParameters))
-			{
-#ifdef OUTPUT_ERR
-				std::cerr << "ERROR #3L: \"\\." << portName << "\" Couldn't set parameters\n";
-#else 
-				CloseHandle(serial);
-				return;
-#endif
-				CloseHandle(serial);
-			}
-			else
-			{
-				this->isConnected = TRUE;
-				this->portName = portName;
-				PurgeComm(serial, PURGE_RXCLEAR | PURGE_TXCLEAR);
-				Sleep(WAIT_TIME);
-			}
-		}
-
+		CloseHandle(hCom);
+		return;
 	}
+	// COMMTIMEOUTS: This structure sets timeouts for read and write operations.
+	// Optionally, set timeouts
+	COMMTIMEOUTS timeouts{};
+	timeouts.ReadIntervalTimeout = READINTERVALTIMEOUT;
+	timeouts.ReadTotalTimeoutConstant = READTOTALTIMEOUTCONSTANT;
+	timeouts.ReadTotalTimeoutMultiplier = READTOTALTIMEOUTMULTIPLIER;
+	timeouts.WriteTotalTimeoutConstant = WRITETOTALTIMEOUTCONSTANT;
+	timeouts.WriteTotalTimeoutMultiplier = WRITETOTALTIMEOUTMULTIPLIER;
+
+	if (!SetCommTimeouts(hCom, &timeouts))
+	{
+#if defined(UCPERR)
+		std::cerr << "Error setting timeouts: " << GetLastError() << std::endl;
+#endif
+		// CloseHandle: Once done with the COM port, itТs important to close the handle to release the resource.
+		CloseHandle(hCom);
+		return;
+	}
+	isConnected = TRUE;
 }
 
 usb::SerialPort::SerialPort(const char* portName)
@@ -96,10 +77,8 @@ usb::SerialPort::SerialPort(const char* portName)
 
 usb::SerialPort::SerialPort()
 {
-	this->err = 0;
-	this->comStatus = { 0 };
 	this->isConnected = FALSE;
-	this->serial = NULL;
+	this->hCom = NULL;
 	portName = NULL;
 }
 
@@ -119,39 +98,44 @@ char* usb::SerialPort::readPort() const
 {
 	// Reads the requested data ("for reading") bytes to the "buffer"
 	// and returns the number of bytes actually read
-	char buffer[256]{}; // »спользуйте необходимый размер буфера
-	DWORD bytesRead;
-	if (!ReadFile(serial, buffer, sizeof(buffer) - 1, &bytesRead, NULL))
+	if (!this->isConnected)
 	{
-#if defined(OUTPUT_ERR)
-		std::cerr << "ERROR #7L: \"\\." << portName << "\" Couldn't read\n";
+#ifdef UCPERR
+		std::cerr << "The port is closed" << std::endl;
 #endif
-		delete[] buffer;
 		return NULL;
 	}
-
-	buffer[bytesRead] = '\0';
-
-	char* result = new char[bytesRead + 1];
-	strncpy(result, buffer, static_cast<size_t>(bytesRead) + 1);
-
-	return result;
+	char* buffer = static_cast<char*>(calloc(BUFFER_SIZE, sizeof(char)));
+	unsigned long bytesRead = 0;
+	if (!ReadFile(hCom, buffer, BUFFER_SIZE - 1, &bytesRead, NULL))
+	{
+#if defined(UCPERR)
+		std::cerr << "Error reading from COM port: \"\\." << portName << "\" " << GetLastError() << std::endl;
+#endif
+		free(buffer);
+		return NULL;
+	}
+	return buffer;
 }
 
 BOOL usb::SerialPort::writePort(const char* data) const
 {
-	DWORD bytesWritten;
-	if (!WriteFile(serial, data, strlen(data), &bytesWritten, NULL))
+	if (!this->isConnected)
 	{
-#ifdef OUTPUT_ERR
-		std::cerr << "ERROR #6L: \"\\." << this->portName << "\" Couldn't transmit data\n";
+#ifdef UCPERR
+		std::cerr << "The port is closed" << std::endl;
+#endif
+		return NULL;
+	}
+	DWORD bytesWritten;
+	if (!WriteFile(hCom, data, strlen(data), &bytesWritten, NULL))
+	{
+#ifdef UCPERR
+		std::cerr << "Error writing to COM port: " << GetLastError() << "\n";
 #endif
 		return FALSE;
 	}
-	else
-	{
-		return TRUE;
-	}
+	return TRUE;
 }
 
 BOOL usb::SerialPort::isConneted() const
@@ -165,7 +149,7 @@ void usb::SerialPort::disconnect()
 	{
 		this->isConnected = FALSE;
 		this->portName = "";
-		CloseHandle(serial);
+		CloseHandle(hCom);
 	}
 }
 
@@ -192,11 +176,11 @@ std::vector<std::string> usb::findAvailableComPorts()
 	return comPorts;
 }
 
-BOOL usb::SerialPort::available() const
+BOOL usb::SerialPort::isAvailable() const
 {
 	if (!isConnected)
 	{
-#ifdef OUTPUT_ERR
+#ifdef UCPERR
 		std::cerr << "The port is closed\n";
 #endif
 		return -1;
@@ -204,7 +188,7 @@ BOOL usb::SerialPort::available() const
 	DWORD errors;
 	COMSTAT cs;
 	unsigned long res = 0;
-	if (ClearCommError(serial, &errors, &cs))
+	if (ClearCommError(hCom, &errors, &cs))
 	{
 		if (cs.cbInQue > 0)
 		{
@@ -213,7 +197,7 @@ BOOL usb::SerialPort::available() const
 	}
 	else
 	{
-#if defined(OUTPUT_ERR)
+#if defined(UCPERR)
 		std::cerr << "ERROR: \"\\." << portName << "\" Error checking the port status\n";
 #endif
 		return -1;

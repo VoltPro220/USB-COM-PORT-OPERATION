@@ -8,13 +8,21 @@
 #define WAIT_TIME 4000 
 
 // Number of bytes received (Can be changed)
-#define INPUT_DATA_BYTES 10
+#define BUFFER_SIZE 256
 
 // ************ Connected Port Settings **********
-#define CBR_BAUD CBR_9600
-#define BYTESIZE 8
+
+#define BAUDRATE CBR_9600
 #define STOPBITS ONESTOPBIT
 #define PARITY NOPARITY
+#define BYTESIZE 8
+
+
+#define READINTERVALTIMEOUT 50
+#define READTOTALTIMEOUTCONSTANT 50
+#define READTOTALTIMEOUTMULTIPLIER 10
+#define WRITETOTALTIMEOUTCONSTANT 50
+#define WRITETOTALTIMEOUTMULTIPLIER 50
 
 // **** The settings are set by default, you don't have to change them. ****
 
@@ -34,11 +42,11 @@
 #define COULD_NOT_WRITE 6L
 #define COULD_NOT_READ 7L
 
-#define OUTPUT_ERR
+#define UCPERR
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#ifdef OUTPUT_ERR
+#ifdef UCPERR
 #include <iostream>
 #endif
 
@@ -55,15 +63,11 @@ namespace usb {
 	private:
 
 		// Device Descriptor
-		HANDLE serial;
+		HANDLE hCom;
 		// true - connection is successful
 		// false - connection is not successful
 		BOOL isConnected;
-		// Contains a lot of data about the status of the communication channel
-		// It is useful for setting parameters.
-		COMSTAT comStatus;
 		// Error number, in case of an error
-		DWORD err;
 		// The name of port, need for return when calling method getPortName();
 		const char* portName;
 
@@ -81,7 +85,7 @@ namespace usb {
 		BOOL isConneted() const;
 		void disconnect();
 		const char* getPortName() const;
-		BOOL available() const;
+		BOOL isAvailable() const;
 	};
 
 }

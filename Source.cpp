@@ -5,14 +5,14 @@ int main(void)
 	usb::SerialPort port("COM3");
 
 	char* buf{};
-	char bufToSend[INPUT_DATA_BYTES] = "";
+	char bufToSend[BUFFER_SIZE] = "";
 	int data = 0;
 	long time = 0;
 	int st = 0;
 	bool run = true;
 	while (run)
 	{
-		if (port.available())
+		if (port.isAvailable())
 		{
 			buf = port.readPort();
 			int a = sscanf(buf, "%d,%ld,%d;", &data, &time, &st);
@@ -22,17 +22,17 @@ int main(void)
 			{
 				switch (_getch())
 				{
-					case 97:
+					case 'a':
 						st = ~st;
 						sprintf(bufToSend, "%d,%ld,%d;", data, time, st);
 						port.writePort(bufToSend);
 						break;
-					case 115:
+					case 's':
 						time = 0;
 						sprintf(bufToSend, "%d,%ld,%d;", data, time, st);
 						port.writePort(bufToSend);
 						break;
-					case 120:
+					case 'x':
 						run = FALSE;
 						break;
 					default:
