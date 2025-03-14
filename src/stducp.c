@@ -74,7 +74,6 @@ HANDLE open_com_port(const char* portName)
 	return hCom;
 }
 
-
 void close_com_port(void)
 {
 	if (isConnected)
@@ -82,6 +81,29 @@ void close_com_port(void)
 #ifdef UCPERR
 	else fprintf(stderr, "The port is closed\n");
 #endif
+}
+
+int find_available_com_ports()
+{
+	static int N = 1;
+	char buf[8];
+	int a = sprintf(buf, "COM%d", N);
+	N++;
+	if (N == 257)
+		return 0;
+	HANDLE h = CreateFileA(buf,
+						   GENERIC_READ | GENERIC_WRITE,
+						   0, // No sharing
+						   NULL, // Default security
+						   OPEN_EXISTING,
+						   0, // No attributes
+						   NULL); // No template file;
+	if (h != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(h);
+		return N - 1;
+	}
+	return -1;
 }
 
 const char* read_from_com_port(void)

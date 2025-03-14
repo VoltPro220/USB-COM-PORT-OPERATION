@@ -43,6 +43,9 @@ EXTERN
 void close_com_port(void);
 
 EXTERN
+int find_available_com_ports();
+
+EXTERN
 const char* read_from_com_port(void);
 
 EXTERN
