@@ -137,6 +137,7 @@ const char* read_from_com_port(void)
 #if defined(UCPERR)
 		fprintf(stderr, "Error reading from COM port: %ld\n", GetLastError());
 #endif
+		free(buffer);
 		return NULL;
 	}
 	return buffer;

@@ -1,6 +1,6 @@
-#include "stducp.h"
+#include "src/stducp.h"
 
-int main(void)
+int f(void)
 {
 	const char* portName = "COM4"; // Change this to your appropriate COM port
 	HANDLE h = open_com_port(portName);
