@@ -1,6 +1,6 @@
 #include "src/SerialPort.h"
 #include <conio.h>
-int main(void)
+int a(void)
 {
 	usb::SerialPort port("COM3");
 
@@ -34,8 +34,6 @@ int main(void)
 						break;
 					case 'x':
 						run = FALSE;
-						break;
-					default:
 						break;
 				}
 			}
